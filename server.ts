@@ -13,19 +13,20 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Initialize Supabase
+const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '').replace(/\/rest\/v1$/, '');
+const supabaseKey = (process.env.SUPABASE_ANON_KEY || '').trim();
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error("CRITICAL: SUPABASE_URL or SUPABASE_ANON_KEY is missing in .env");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 async function startServer() {
-  const app = express();
-  const PORT = 3000;
-
-  // Initialize Supabase inside startServer
-  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '').replace(/\/rest\/v1$/, '');
-  const supabaseKey = (process.env.SUPABASE_ANON_KEY || '').trim();
-  
-  if (!supabaseUrl || !supabaseKey) {
-    console.error("CRITICAL: SUPABASE_URL or SUPABASE_ANON_KEY is missing in .env");
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
 
   // Multer setup for image uploads (Local fallback)
   const uploadDir = path.join(__dirname, "public/uploads");
@@ -280,9 +281,13 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+export default app;
