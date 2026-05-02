@@ -4,13 +4,6 @@
     {
       "src": "server.ts",
       "use": "@vercel/node"
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
     }
   ],
   "routes": [
@@ -19,12 +12,8 @@
       "dest": "server.ts"
     },
     {
-      "src": "/uploads/(.*)",
-      "dest": "public/uploads/$1"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "server.ts"
     }
   ]
 }
