@@ -21,6 +21,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -29,20 +30,24 @@ export default function App() {
 
   const fetchData = async () => {
     setIsLoading(true);
+    setDbError(null);
     try {
-      const [prodRes, orderRes] = await Promise.all([
+      const [pRes, oRes] = await Promise.all([
         fetch('/api/products'),
         fetch('/api/orders')
       ]);
       
-      const pData = await prodRes.json();
-      const oData = await orderRes.json();
-      
-      // Ensure we always have arrays
+      if (!pRes.ok) {
+        const errData = await pRes.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${pRes.status}`);
+      }
+
+      const [pData, oData] = await Promise.all([pRes.json(), oRes.json()]);
       setProducts(Array.isArray(pData) ? pData : []);
       setOrders(Array.isArray(oData) ? oData : []);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Fetch error:", err);
+      setDbError(err.message || 'Failed to fetch data');
       setProducts([]);
       setOrders([]);
     } finally {
@@ -61,6 +66,16 @@ export default function App() {
       </header>
 
       <main className="max-w-md mx-auto px-4 pt-6">
+        {dbError && (
+          <div className="mb-6 bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 animate-pulse">
+            <div className="bg-red-600 text-white p-1 rounded-full"><Package size={14} /></div>
+            <div className="text-xs">
+              <p className="font-bold">Database Error:</p>
+              <p>{dbError}. Periksa SUPABASE_URL di Vercel Settings.</p>
+            </div>
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
             <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
