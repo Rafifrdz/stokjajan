@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -17,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Initialize Supabase
-const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '').replace(/\/rest\/v1$/, '');
+const supabaseUrl = (process.env.SUPABASE_URL || '').trim().replace(/\/$/, '').replace(/\/rest\/v1$/, '');
 const supabaseKey = (process.env.SUPABASE_ANON_KEY || '').trim();
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -42,7 +41,7 @@ const mapId = (item: any) => {
   return { _id: id, ...rest };
 };
 
-// --- API ROUTES (Defined at Top Level for Vercel) ---
+// --- API ROUTES ---
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -98,7 +97,7 @@ app.get("/api/orders", async (req, res) => {
     if (error) throw error;
     res.json((data || []).map(order => ({
       ...mapId(order),
-      items: order.items.map(mapId),
+      items: (order.items || []).map(mapId),
       customerName: order.customer_name,
       totalPrice: order.total_price,
       paymentStatus: order.payment_status,
@@ -127,16 +126,18 @@ app.post("/api/orders", async (req, res) => {
       .select().single();
     if (orderError) throw orderError;
 
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(items.map((item: any) => ({
-        order_id: order.id,
-        product_id: item.productId,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price
-      })));
-    if (itemsError) throw itemsError;
+    if (items && items.length > 0) {
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(items.map((item: any) => ({
+          order_id: order.id,
+          product_id: item.productId,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })));
+      if (itemsError) throw itemsError;
+    }
 
     res.status(201).json(mapId(order));
   } catch (err: any) {
@@ -165,9 +166,11 @@ app.patch("/api/orders/:id", async (req, res) => {
   }
 });
 
-// --- VITE / STATIC CONFIG (Local only) ---
-async function startVite() {
+// --- VITE / STATIC CONFIG (Dynamic Import to prevent Vercel crash) ---
+async function setupFrontend() {
   if (!process.env.VERCEL) {
+    // Only import and start Vite locally
+    const { createServer: createViteServer } = await import("vite");
     if (process.env.NODE_ENV !== "production") {
       const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
       app.use(vite.middlewares);
@@ -180,6 +183,6 @@ async function startVite() {
   }
 }
 
-startVite();
+setupFrontend();
 
 export default app;
